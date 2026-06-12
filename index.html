@@ -775,13 +775,14 @@ const margin=(c,p)=>p>0?((p-c)/p*100).toFixed(1)+"%" : "—";
 
 // 🔥 ใส่ค่า Firebase ของคุณตรงนี้ (ดูวิธีในคู่มือ)
 const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyCZVhe3oPebPD0YcVm5jXHW-VdhbSriVUA",
-  authDomain:        "orangepos-5c631.firebaseapp.com",
-  databaseURL:       "https://orangepos-5c631-default-rtdb.firebaseio.com",
-  projectId:         "orangepos-5c631",
-  storageBucket:     "orangepos-5c631.firebasestorage.app",
-  messagingSenderId: "787462601100",
-  appId:             "1:787462601100:web:706566adc11d4883903ea9"
+  apiKey:            "AIzaSyBm-sgJNTPOcuSfOXFAHLbgs0vH60RGW_4",
+  authDomain:        "orangsi-pos.firebaseapp.com",
+  databaseURL:       "https://orangsi-pos-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "orangsi-pos",
+  storageBucket:     "orangsi-pos.firebasestorage.app",
+  messagingSenderId: "1011696141885",
+  appId:             "1:1011696141885:web:041d2bc848a60bf16fcc54",
+  measurementId:     "G-5435DHK5BK"
 };
 const FB_PATH = 'orangesi-pos/data'; // path ใน Realtime Database
 
@@ -864,17 +865,23 @@ function setSyncStatus(status,msg){
 /* ── Firebase save ── */
 async function saveToCloud(){
   if(!isFirebaseConfigured()){
-    setSyncStatus('err','⚙️ ยังไม่ได้ตั้งค่า Firebase — ดูคู่มือในแท็บ "ข้อมูล"');
+    setSyncStatus('ok','บันทึกในเครื่องแล้ว');
     return;
   }
   if(isSyncing)return;
   isSyncing=true;
   setSyncStatus('syncing','กำลังบันทึก...');
+  const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
   try{
-    await initFirebase();
-    if(!fbDatabase)throw new Error('no db');
-    const dbRef=fbDatabase.ref(fbDatabase.db,FB_PATH);
-    await fbDatabase.set(dbRef,dataSnapshot());
+    await Promise.race([
+      (async()=>{
+        await initFirebase();
+        if(!fbDatabase)throw new Error('no db');
+        const dbRef=fbDatabase.ref(fbDatabase.db,FB_PATH);
+        await fbDatabase.set(dbRef,dataSnapshot());
+      })(),
+      timeout
+    ]);
     lastSyncTime=new Date();
     setSyncStatus('ok',`บันทึกแล้ว ${lastSyncTime.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`);
     if(document.getElementById('sync-detail'))
@@ -888,31 +895,39 @@ async function saveToCloud(){
 /* ── Firebase load ── */
 async function loadFromCloud(){
   if(!isFirebaseConfigured()){
-    setSyncStatus('err','⚙️ ยังไม่ได้ตั้งค่า Firebase');
+    setSyncStatus('ok','บันทึกในเครื่องแล้ว');
     checkLowStock();renderStock();renderMembers();renderSummary();
     return;
   }
   setSyncStatus('syncing','กำลังซิงค์...');
+  // timeout 8 วินาที กัน hang
+  const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
   try{
-    await initFirebase();
-    if(!fbDatabase)throw new Error('no db');
-    const dbRef=fbDatabase.ref(fbDatabase.db,FB_PATH);
-    const snapshot=await fbDatabase.get(dbRef);
-    const cloudData=snapshot.val();
-    if(cloudData){
-      const localRaw=localStorage.getItem(LS_KEY);
-      const localTime=localRaw?JSON.parse(localRaw).savedAt:null;
-      if(!localTime||!cloudData.savedAt||(new Date(cloudData.savedAt)>new Date(localTime))){
-        applySnapshot(cloudData);
-        saveLocal();
-        applySettings();
-      }
-      setSyncStatus('ok',`ซิงค์แล้ว ${new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`);
-    }else{
-      await saveToCloud(); // first run: push local data up
-    }
+    await Promise.race([_doLoadFromCloud(), timeout]);
   }catch(e){
     setSyncStatus('err','ออฟไลน์ — ใช้ข้อมูลในเครื่อง');
+    checkLowStock();renderStock();renderMembers();renderSummary();
+  }
+}
+
+async function _doLoadFromCloud(){
+  await initFirebase();
+  if(!fbDatabase)throw new Error('no db');
+  const dbRef=fbDatabase.ref(fbDatabase.db,FB_PATH);
+  const snapshot=await fbDatabase.get(dbRef);
+  const cloudData=snapshot.val();
+  if(cloudData){
+    const localRaw=localStorage.getItem(LS_KEY);
+    const localTime=localRaw?JSON.parse(localRaw).savedAt:null;
+    if(!localTime||!cloudData.savedAt||(new Date(cloudData.savedAt)>new Date(localTime))){
+      applySnapshot(cloudData);
+      saveLocal();
+      applySettings();
+    }
+    setSyncStatus('ok',`ซิงค์แล้ว ${new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`);
+  }else{
+    await saveToCloud();
+    setSyncStatus('ok','บันทึก Cloud แล้ว');
   }
   checkLowStock();renderStock();renderMembers();renderSummary();
 }
@@ -2200,13 +2215,7 @@ function clearProdImg(){
 }
 
 async function init(){
-  // Show Firebase setup banner if not configured
-  if(!isFirebaseConfigured()){
-    const banner=document.getElementById('firebase-setup-banner');
-    if(banner)banner.style.display='block';
-  }
-
-  // 1. Load from localStorage instantly — page shows real data before cloud responds
+  // 1. โหลด localStorage ทันที — แสดงข้อมูลก่อนเลย ไม่รอ cloud
   const localLoaded = loadLocal();
   applySettings();
   renderStock();
@@ -2215,14 +2224,16 @@ async function init(){
   checkLowStock();
 
   if(localLoaded){
-    setSyncStatus('ok','โหลดจากเครื่องแล้ว');
+    setSyncStatus('ok','พร้อมใช้งาน');
+  } else {
+    setSyncStatus('ok','พร้อมใช้งาน (ใหม่)');
   }
 
-  // 2. Then sync with cloud in background
-  await loadFromCloud();
+  // 2. Cloud sync ใน background — ไม่บล็อกหน้าจอ
+  loadFromCloud().catch(()=>{});
   startAutoSync();
 
-  // Sync dot references for second instance
+  // Sync dot ชุดที่ 2
   const dot2=document.getElementById('sync-dot2');
   const text2=document.getElementById('sync-text2');
   if(dot2){dot2.className=document.getElementById('sync-dot').className;}
