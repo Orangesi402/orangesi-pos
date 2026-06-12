@@ -83,6 +83,8 @@ label{font-size:var(--fs-sm);color:var(--color-text2);display:block;margin-botto
 .pay-btn.transfer{background:#E3F2FD;color:#0D47A1;border-color:#90CAF9}
 .pay-btn.sel-cash{background:#1B5E20;color:#fff;border-color:#1B5E20}
 .pay-btn.sel-transfer{background:#0D47A1;color:#fff;border-color:#0D47A1}
+.pay-btn.thai{background:#FFF8E1;color:#E65100;border-color:#FFCC02}
+.pay-btn.sel-thai{background:#E65100;color:#fff;border-color:#E65100}
 
 .cart-tbl{width:100%;font-size:var(--fs);border-collapse:collapse;table-layout:fixed}
 .cart-tbl th{font-size:var(--fs-sm);color:var(--color-text2);padding:7px 8px;border-bottom:0.5px solid var(--color-border);font-weight:500;text-align:left}
@@ -281,12 +283,15 @@ label{font-size:var(--fs-sm);color:var(--color-text2);display:block;margin-botto
           <span class="total-num" id="net-disp" style="color:#fff">฿0.00</span>
         </div>
         <div style="font-size:var(--fs-sm);color:var(--color-text2);margin-top:4px">ช่องทางชำระเงิน</div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="pay-btn cash sel-cash" id="btn-cash" onclick="selPay('cash')">
             <div style="font-size:20px">💵</div><div>เงินสด</div>
           </button>
           <button class="pay-btn transfer" id="btn-transfer" onclick="selPay('transfer')">
             <div style="font-size:20px">📲</div><div>โอนจ่าย</div>
+          </button>
+          <button class="pay-btn thai" id="btn-thai" onclick="selPay('thai')">
+            <div style="font-size:20px">🇹🇭</div><div>ไทยช่วยไทย</div>
           </button>
         </div>
         <button class="btn success lg" onclick="checkout()"><i class="ti ti-check"></i> ยืนยันการขาย</button>
@@ -360,6 +365,10 @@ label{font-size:var(--fs-sm);color:var(--color-text2);display:block;margin-botto
             <div style="font-size:var(--fs-sm);color:#0D47A1;margin-bottom:4px">📲 โอนจ่าย</div>
             <div style="font-size:var(--fs-xl);font-weight:500;color:#0D47A1" id="s-transfer">฿0</div>
           </div>
+          <div style="flex:1;padding:12px;background:#FFF8E1;border-radius:var(--radius);text-align:center">
+            <div style="font-size:var(--fs-sm);color:#E65100;margin-bottom:4px">🇹🇭 ไทยช่วยไทย</div>
+            <div style="font-size:var(--fs-xl);font-weight:500;color:#E65100" id="s-thai">฿0</div>
+          </div>
         </div>
       </div>
       <div class="card" style="flex:1;min-width:200px">
@@ -410,6 +419,10 @@ label{font-size:var(--fs-sm);color:var(--color-text2);display:block;margin-botto
           <div style="flex:1;padding:12px;background:#E3F2FD;border-radius:var(--radius);text-align:center">
             <div style="font-size:var(--fs-sm);color:#0D47A1;margin-bottom:4px">📲 โอนจ่าย</div>
             <div style="font-size:var(--fs-xl);font-weight:500;color:#0D47A1" id="m-transfer">฿0</div>
+          </div>
+          <div style="flex:1;padding:12px;background:#FFF8E1;border-radius:var(--radius);text-align:center">
+            <div style="font-size:var(--fs-sm);color:#E65100;margin-bottom:4px">🇹🇭 ไทยช่วยไทย</div>
+            <div style="font-size:var(--fs-xl);font-weight:500;color:#E65100" id="m-thai">฿0</div>
           </div>
         </div>
       </div>
@@ -1171,6 +1184,7 @@ function selPay(m){
   pay=m;
   document.getElementById('btn-cash').className='pay-btn cash'+(m==='cash'?' sel-cash':'');
   document.getElementById('btn-transfer').className='pay-btn transfer'+(m==='transfer'?' sel-transfer':'');
+  document.getElementById('btn-thai').className='pay-btn thai'+(m==='thai'?' sel-thai':'');
 }
 
 // ═══════════════════════════════════════════════
@@ -1239,7 +1253,7 @@ function checkout(){
     persist();
 
     // Success notification
-    const payLabel=pay==='cash'?'💵 เงินสด':'📲 โอนจ่าย';
+    const payLabel=pay==='cash'?'💵 เงินสด':pay==='thai'?'🇹🇭 ไทยช่วยไทย':'📲 โอนจ่าย';
     showCheckoutResult(true,'ทำรายการสำเร็จ! 🎉',`ยอดสุทธิ ${fmt(net)} · ${payLabel}`);
   }catch(err){
     showCheckoutResult(false,'ทำรายการไม่สำเร็จ','เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
@@ -1268,7 +1282,7 @@ function showReceiptModal(sale){
     sale.discAmt>0?`ส่วนลด:         -${fmt(sale.discAmt)}`:'',
     sale.ptsDisc>0?`แต้มสะสม:       -${fmt(sale.ptsDisc)}`:'',
     `ยอดสุทธิ:         ${fmt(sale.tot)}`,
-    `ชำระ: ${sale.pay==='cash'?'💵 เงินสด':'📲 โอนจ่าย'}`,
+    `ชำระ: ${sale.pay==='cash'?'💵 เงินสด':sale.pay==='thai'?'🇹🇭 ไทยช่วยไทย':'📲 โอนจ่าย'}`,
     sep,
     sale.member?`สมาชิก: ${sale.member.name}\nแต้มที่ได้รับ: +${sale.member.ptsEarned} แต้ม`:'',
     sep,
@@ -1674,7 +1688,7 @@ function salesToCSV(list){
       rows.push([s.date,s.time,it.name,it.qty,it.price.toFixed(2),(it.price*it.qty).toFixed(2),
         i===0?s.discAmt.toFixed(2):'',i===0?(s.ptsDisc||0).toFixed(2):'',
         i===0?s.tot.toFixed(2):'',i===0?s.prf.toFixed(2):'',
-        i===0?(s.pay==='cash'?'เงินสด':'โอนจ่าย'):'',
+        i===0?(s.pay==='cash'?'เงินสด':s.pay==='thai'?'ไทยช่วยไทย':'โอนจ่าย'):'',
         i===0?(s.member?s.member.name:''):''].join(','));
     });
   });
@@ -1778,11 +1792,13 @@ function renderSummary(){
   const prf=todaySales.reduce((s,x)=>s+x.prf,0);
   const cash=todaySales.filter(x=>x.pay==='cash').reduce((s,x)=>s+x.tot,0);
   const trf=todaySales.filter(x=>x.pay==='transfer').reduce((s,x)=>s+x.tot,0);
+  const thai=todaySales.filter(x=>x.pay==='thai').reduce((s,x)=>s+x.tot,0);
   document.getElementById('s-rev').textContent=fmt(tot);
   document.getElementById('s-prf').textContent=fmt(prf);
   document.getElementById('s-bills').textContent=todaySales.length;
   document.getElementById('s-cash').textContent=fmt(cash);
   document.getElementById('s-transfer').textContent=fmt(trf);
+  document.getElementById('s-thai').textContent=fmt(thai);
   const sold={};
   todaySales.forEach(s=>s.items.forEach(i=>{sold[i.name]=(sold[i.name]||0)+i.qty*i.price;}));
   const top=Object.entries(sold).sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -1795,7 +1811,7 @@ function renderSummary(){
   document.getElementById('history').innerHTML=allIdx.length?[...allIdx].reverse().map(({s,i})=>`
     <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--color-border);align-items:flex-start">
       <div style="flex:1">
-        <div style="font-size:var(--fs-sm);color:var(--color-text2)">${s.time} · ${s.pay==='cash'?'💵 เงินสด':'📲 โอนจ่าย'}${s.discAmt>0?` · ลด ${fmt(s.discAmt)}`:''}${s.ptsDisc>0?` · แต้ม ${fmt(s.ptsDisc)}`:''}${s.member?` · 👤${s.member.name}`:''}</div>
+        <div style="font-size:var(--fs-sm);color:var(--color-text2)">${s.time} · ${s.pay==='cash'?'💵 เงินสด':s.pay==='thai'?'🇹🇭 ไทยช่วยไทย':'📲 โอนจ่าย'}${s.discAmt>0?` · ลด ${fmt(s.discAmt)}`:''}${s.ptsDisc>0?` · แต้ม ${fmt(s.ptsDisc)}`:''}${s.member?` · 👤${s.member.name}`:''}</div>
         <div style="font-size:var(--fs);margin-top:2px">${s.items.map(it=>it.name+' x'+it.qty).join(', ')}</div>
       </div>
       <div style="text-align:right;white-space:nowrap;margin-left:12px">
@@ -1914,12 +1930,14 @@ function renderMonthly(){
   const prevPrf=prevSales.reduce((s,x)=>s+x.prf,0);
   const cash=mSales.filter(x=>x.pay==='cash').reduce((s,x)=>s+x.tot,0);
   const trf=mSales.filter(x=>x.pay==='transfer').reduce((s,x)=>s+x.tot,0);
+  const thai=mSales.filter(x=>x.pay==='thai').reduce((s,x)=>s+x.tot,0);
 
   document.getElementById('m-rev').textContent=fmt(tot);
   document.getElementById('m-prf').textContent=fmt(prf);
   document.getElementById('m-bills').textContent=mSales.length;
   document.getElementById('m-cash').textContent=fmt(cash);
   document.getElementById('m-transfer').textContent=fmt(trf);
+  document.getElementById('m-thai').textContent=fmt(thai);
 
   // Compare
   function compareMetric(label,cur,prev){
@@ -1980,7 +1998,7 @@ function renderMonthly(){
   document.getElementById('m-history').innerHTML=mSales.length?[...mSales].reverse().map(s=>`
     <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--color-border)">
       <div>
-        <div style="font-size:var(--fs-sm);color:var(--color-text2)">${s.date||''} ${s.time} · ${s.pay==='cash'?'💵 เงินสด':'📲 โอนจ่าย'}${s.discAmt>0?` · ลด ${fmt(s.discAmt)}`:''}</div>
+        <div style="font-size:var(--fs-sm);color:var(--color-text2)">${s.date||''} ${s.time} · ${s.pay==='cash'?'💵 เงินสด':s.pay==='thai'?'🇹🇭 ไทยช่วยไทย':'📲 โอนจ่าย'}${s.discAmt>0?` · ลด ${fmt(s.discAmt)}`:''}</div>
         <div style="font-size:var(--fs);margin-top:2px">${s.items.map(i=>i.name+' x'+i.qty).join(', ')}</div>
       </div>
       <div style="text-align:right;white-space:nowrap;margin-left:12px">
