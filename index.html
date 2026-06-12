@@ -12,9 +12,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Orangesi POS">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" onerror="this.remove()">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png" onerror="this.remove()">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png" onerror="this.remove()">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1701,7 +1701,7 @@ function salesToCSV(list){
       rows.push([s.date,s.time,it.name,it.qty,it.price.toFixed(2),(it.price*it.qty).toFixed(2),
         i===0?s.discAmt.toFixed(2):'',i===0?(s.ptsDisc||0).toFixed(2):'',
         i===0?s.tot.toFixed(2):'',i===0?s.prf.toFixed(2):'',
-        i===0?(payLabel(s.pay).replace(/[\u{1F000}-\u{FFFF}]/gu,'').trim()||s.pay):'',
+        i===0?(payLabel(s.pay).replace(/[^\x00-\x7F\u0E00-\u0E7F]/g,'').trim()||s.pay):'',
         i===0?(s.member?s.member.name:''):''].join(','));
     });
   });
