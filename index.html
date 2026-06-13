@@ -179,6 +179,17 @@ label{font-size:var(--fs-sm);color:var(--color-text2);display:block;margin-botto
 .inner-tab{padding:8px 14px;font-size:var(--fs-sm);font-weight:500;border:none;background:none;cursor:pointer;color:var(--color-text2);border-bottom:2px solid transparent;margin-bottom:-1px}
 .inner-tab.active{color:var(--color-text);border-bottom-color:var(--color-orange)}
 .inner-panel{display:none}.inner-panel.active{display:block}
+
+/* DAY DETAIL MODAL */
+.day-bar-clickable{cursor:pointer;transition:opacity .15s}
+.day-bar-clickable:hover{opacity:.75}
+.day-sale-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--color-border);align-items:flex-start}
+.day-sale-row:last-child{border-bottom:none}
+
+/* LOGIN LOCK overlay */
+#modal-edit-lock{z-index:300}
+.lock-icon{font-size:48px;text-align:center;margin-bottom:10px}
+
 </style>
 </head>
 <body>
@@ -432,8 +443,12 @@ label{font-size:var(--fs-sm);color:var(--color-text2);display:block;margin-botto
       </div>
     </div>
     <div class="card">
-      <div class="section-title"><i class="ti ti-chart-line"></i> ยอดขายรายวัน</div>
+      <div class="section-title"><i class="ti ti-chart-line"></i> ยอดขายรายวัน <span style="font-size:11px;color:var(--color-text3);font-weight:400">(คลิกแท่งเพื่อดูรายละเอียด)</span></div>
       <div id="m-daily-chart" style="overflow-x:auto"></div>
+    </div>
+    <div class="card">
+      <div class="section-title"><i class="ti ti-table"></i> สรุปยอดรายวัน</div>
+      <div id="m-daily-table" style="overflow-x:auto"></div>
     </div>
     <div class="card">
       <div class="section-title"><i class="ti ti-history"></i> ประวัติการขายทั้งหมดของเดือน</div>
@@ -493,6 +508,14 @@ label{font-size:var(--fs-sm);color:var(--color-text2);display:block;margin-botto
         <div>
           <label>ซิงค์อัตโนมัติทุก (วินาที, ขั้นต่ำ 30)</label>
           <input id="setting-sync-interval" type="number" min="30" value="60" oninput="saveSettings()">
+        </div>
+        <div>
+          <label>Username (สำหรับแก้ไขรายการขาย)</label>
+          <input id="setting-edit-user" type="text" value="admin" readonly style="background:var(--color-bg2);color:var(--color-text2);cursor:not-allowed">
+        </div>
+        <div>
+          <label>Password (สำหรับแก้ไขรายการขาย)</label>
+          <input id="setting-edit-pass" type="password" value="786098" readonly style="background:var(--color-bg2);color:var(--color-text2);cursor:not-allowed">
         </div>
       </div>
     </div>
@@ -735,6 +758,46 @@ label{font-size:var(--fs-sm);color:var(--color-text2);display:block;margin-botto
 </div>
 
 <div id="receipt-print-area"></div>
+
+<!-- DAY DETAIL MODAL -->
+<div id="modal-day-detail" class="overlay">
+  <div class="modal modal-lg" style="max-width:680px">
+    <div class="modal-header">
+      <span class="modal-title" id="day-detail-title"><i class="ti ti-calendar-event"></i> รายการขายประจำวัน</span>
+      <button class="btn sm" onclick="closeModal('modal-day-detail')"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px" id="day-detail-metrics"></div>
+    <div id="day-detail-list" style="max-height:520px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- LOGIN MODAL (guard for edit/delete) -->
+<div id="modal-edit-lock" class="overlay" style="z-index:300">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title"><i class="ti ti-lock"></i> ยืนยันตัวตนก่อนแก้ไข</span>
+      <button class="btn sm" onclick="closeEditLock()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="font-size:48px;text-align:center;margin-bottom:10px">🔐</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label>ชื่อผู้ใช้ (Username)</label>
+        <input id="lock-user" type="text" placeholder="กรอก Username" autocomplete="username">
+      </div>
+      <div>
+        <label>รหัสผ่าน (Password)</label>
+        <input id="lock-pass" type="password" placeholder="กรอกรหัสผ่าน" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')submitEditLock()">
+      </div>
+      <div id="lock-alert"></div>
+      <button class="btn success lg" onclick="submitEditLock()"><i class="ti ti-check"></i> เข้าสู่ระบบแก้ไข</button>
+    </div>
+    <div style="margin-top:12px;padding:10px 14px;background:var(--color-bg2);border-radius:var(--radius);font-size:var(--fs-sm);color:var(--color-text2)">
+      💡 ตั้งค่า Username/Password ได้ที่แท็บ <b>ข้อมูล → ตั้งค่าระบบ</b>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast-wrap" id="toast-wrap"></div>
 
@@ -760,7 +823,7 @@ let activeCat="ทั้งหมด", activeMember=null;
 let selectedIds=new Set();
 let _editQtys=[];
 let categories=["เสื้อคอปกเชิ้ต","เสื้อคอกลม/คอจีน","เสื้อคอบัว","เสื้อคอปกสกิปเปอร์","กางเกงขาสั้น","กางเกงขายาว","กระโปรง"];
-let settings={shopname:"ร้าน Orangesi",phone:"",addr:"",pointsRate:20,syncInterval:15};
+let settings={shopname:"ร้าน Orangesi",phone:"",addr:"",pointsRate:20,syncInterval:15,editUser:"admin",editPass:"786098"};
 let importData=[], restoreData=null;
 let syncTimer=null, lastSyncTime=null, syncStatus='idle';
 
@@ -839,6 +902,9 @@ function applySnapshot(data){
   if(data.categories&&data.categories.length)categories=data.categories;
   if(data.nextId)nextId=data.nextId;
   if(data.nextMemberId)nextMemberId=data.nextMemberId;
+  // Always enforce hardcoded credentials — cannot be changed via cloud or localStorage
+  settings.editUser='admin';
+  settings.editPass='786098';
   return true;
 }
 
@@ -947,6 +1013,9 @@ function saveSettings(){
   settings.addr=document.getElementById('setting-addr')?.value||'';
   settings.pointsRate=parseInt(document.getElementById('setting-points-rate')?.value)||20;
   settings.syncInterval=parseInt(document.getElementById('setting-sync-interval')?.value)||15;
+  // editUser and editPass are hardcoded — never overwritten from UI
+  settings.editUser='admin';
+  settings.editPass='786098';
   persist();
   startAutoSync();
 }
@@ -957,6 +1026,9 @@ function applySettings(){
   if(document.getElementById('setting-addr'))document.getElementById('setting-addr').value=settings.addr||'';
   if(document.getElementById('setting-points-rate'))document.getElementById('setting-points-rate').value=settings.pointsRate||20;
   if(document.getElementById('setting-sync-interval'))document.getElementById('setting-sync-interval').value=settings.syncInterval||15;
+  // Always enforce hardcoded credentials
+  settings.editUser='admin';
+  settings.editPass='786098';
 }
 
 // ═══════════════════════════════════════════════
@@ -1818,9 +1890,9 @@ function renderSummary(){
         <div style="font-weight:500">${fmt(s.tot)}</div>
         <div style="font-size:var(--fs-sm);color:var(--color-success-text)">กำไร ${fmt(s.prf)}</div>
         <div style="display:flex;gap:4px;margin-top:4px;justify-content:flex-end">
-          <button class="btn sm" onclick="openEditSale(${i})"><i class="ti ti-edit"></i></button>
+          <button class="btn sm" onclick="guardEdit(()=>openEditSale(${i}))"><i class="ti ti-edit"></i></button>
           <button class="btn sm" onclick="showReceiptModal(sales[${i}])"><i class="ti ti-receipt"></i></button>
-          <button class="btn sm danger-outline" onclick="cancelSale(${i})"><i class="ti ti-trash"></i></button>
+          <button class="btn sm danger-outline" onclick="guardEdit(()=>cancelSale(${i}))"><i class="ti ti-trash"></i></button>
         </div>
       </div>
     </div>`).join(''):'<span style="color:var(--color-text2)">ยังไม่มีการขาย</span>';
@@ -1984,9 +2056,9 @@ function renderMonthly(){
     document.getElementById('m-daily-chart').innerHTML=`
       <div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding:0 4px;overflow-x:auto;min-width:100%">
         ${days.map(([d,v])=>`
-          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:28px">
+          <div class="day-bar-clickable" onclick="openDayDetail('${d}')" title="คลิกดูรายละเอียด ${d}: ${fmt(v)}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:28px">
             <span style="font-size:10px;color:var(--color-text2);writing-mode:vertical-rl;transform:rotate(180deg);height:36px;overflow:hidden">${fmt(v)}</span>
-            <div style="width:100%;background:#e8824a;border-radius:3px 3px 0 0;height:${Math.max(4,v/maxV*64)}px" title="${d}: ${fmt(v)}"></div>
+            <div style="width:100%;background:#e8824a;border-radius:3px 3px 0 0;height:${Math.max(4,v/maxV*64)}px"></div>
             <span style="font-size:10px;color:var(--color-text2)">${d.split('/')[0]}</span>
           </div>`).join('')}
       </div>`;
@@ -1994,18 +2066,60 @@ function renderMonthly(){
     document.getElementById('m-daily-chart').innerHTML='<div style="text-align:center;padding:24px;color:var(--color-text2)">ยังไม่มีข้อมูล</div>';
   }
 
+  // Daily summary table
+  if(days.length){
+    const dailyProfit={};
+    const dailyBills={};
+    mSales.forEach(s=>{
+      const d=s.date||'';
+      dailyProfit[d]=(dailyProfit[d]||0)+s.prf;
+      dailyBills[d]=(dailyBills[d]||0)+1;
+    });
+    document.getElementById('m-daily-table').innerHTML=`
+      <table class="stk-tbl" style="min-width:400px">
+        <thead><tr>
+          <th>วันที่</th>
+          <th style="text-align:center">บิล</th>
+          <th style="text-align:right">ยอดขาย</th>
+          <th style="text-align:right">กำไร</th>
+          <th style="text-align:center">รายละเอียด</th>
+        </tr></thead>
+        <tbody>${days.map(([d,v])=>`
+          <tr>
+            <td>${d}</td>
+            <td style="text-align:center">${dailyBills[d]||0} บิล</td>
+            <td style="text-align:right;font-weight:500">${fmt(v)}</td>
+            <td style="text-align:right;color:var(--color-success-text)">${fmt(dailyProfit[d]||0)}</td>
+            <td style="text-align:center">
+              <button class="btn sm info" onclick="openDayDetail('${d}')"><i class="ti ti-eye"></i> ดูรายการ</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }else{
+    document.getElementById('m-daily-table').innerHTML='<div style="text-align:center;padding:16px;color:var(--color-text2)">ยังไม่มีข้อมูล</div>';
+  }
+
   // History
-  document.getElementById('m-history').innerHTML=mSales.length?[...mSales].reverse().map(s=>`
+  document.getElementById('m-history').innerHTML=mSales.length?[...mSales].reverse().map(s=>{
+    const idx=sales.indexOf(s);
+    return `
     <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--color-border)">
-      <div>
+      <div style="flex:1">
         <div style="font-size:var(--fs-sm);color:var(--color-text2)">${s.date||''} ${s.time} · ${s.pay==='cash'?'💵 เงินสด':s.pay==='thai'?'🇹🇭 ไทยช่วยไทย':'📲 โอนจ่าย'}${s.discAmt>0?` · ลด ${fmt(s.discAmt)}`:''}</div>
         <div style="font-size:var(--fs);margin-top:2px">${s.items.map(i=>i.name+' x'+i.qty).join(', ')}</div>
       </div>
       <div style="text-align:right;white-space:nowrap;margin-left:12px">
         <div style="font-weight:500">${fmt(s.tot)}</div>
         <div style="font-size:var(--fs-sm);color:var(--color-success-text)">กำไร ${fmt(s.prf)}</div>
+        <div style="display:flex;gap:4px;margin-top:4px;justify-content:flex-end">
+          <button class="btn sm" onclick="guardEdit(()=>openEditSale(${idx}))"><i class="ti ti-edit"></i></button>
+          <button class="btn sm" onclick="showReceiptModal(sales[${idx}])"><i class="ti ti-receipt"></i></button>
+          <button class="btn sm danger-outline" onclick="guardEdit(()=>cancelSale(${idx}))"><i class="ti ti-trash"></i></button>
+        </div>
       </div>
-    </div>`).join(''):'<span style="color:var(--color-text2)">ยังไม่มีการขายในเดือนนี้</span>';
+    </div>`;
+  }).join(''):'<span style="color:var(--color-text2)">ยังไม่มีการขายในเดือนนี้</span>';
 }
 
 // ═══════════════════════════════════════════════
@@ -2122,6 +2236,91 @@ function clearAllData(){
   renderStock();renderMembers();renderSummary();checkLowStock();
   persist();
   showToast('ล้างข้อมูลทั้งหมดแล้ว','warn');
+}
+
+// ═══════════════════════════════════════════════
+// DAY DETAIL MODAL
+// ═══════════════════════════════════════════════
+function openDayDetail(dateStr){
+  const daySales=sales.filter(s=>s.date===dateStr);
+  const tot=daySales.reduce((s,x)=>s+x.tot,0);
+  const prf=daySales.reduce((s,x)=>s+x.prf,0);
+  const cash=daySales.filter(x=>x.pay==='cash').reduce((s,x)=>s+x.tot,0);
+  const trf=daySales.filter(x=>x.pay==='transfer').reduce((s,x)=>s+x.tot,0);
+  const thai=daySales.filter(x=>x.pay==='thai').reduce((s,x)=>s+x.tot,0);
+
+  document.getElementById('day-detail-title').innerHTML=`<i class="ti ti-calendar-event"></i> รายการขาย ${dateStr}`;
+  document.getElementById('day-detail-metrics').innerHTML=`
+    <div class="metric" style="flex:1;min-width:100px"><div class="metric-label">ยอดขาย</div><div class="metric-val">${fmt(tot)}</div></div>
+    <div class="metric" style="flex:1;min-width:100px"><div class="metric-label">กำไร</div><div class="metric-val" style="color:var(--color-success-text)">${fmt(prf)}</div></div>
+    <div class="metric" style="flex:1;min-width:80px"><div class="metric-label">บิล</div><div class="metric-val">${daySales.length}</div></div>
+    ${cash>0?`<div class="metric" style="flex:1;min-width:80px;background:#E8F5E9"><div class="metric-label" style="color:#1B5E20">💵 เงินสด</div><div class="metric-val" style="color:#1B5E20">${fmt(cash)}</div></div>`:''}
+    ${trf>0?`<div class="metric" style="flex:1;min-width:80px;background:#E3F2FD"><div class="metric-label" style="color:#0D47A1">📲 โอน</div><div class="metric-val" style="color:#0D47A1">${fmt(trf)}</div></div>`:''}
+    ${thai>0?`<div class="metric" style="flex:1;min-width:80px;background:#FFF8E1"><div class="metric-label" style="color:#E65100">🇹🇭 ไทยช่วยไทย</div><div class="metric-val" style="color:#E65100">${fmt(thai)}</div></div>`:''}`;
+
+  if(!daySales.length){
+    document.getElementById('day-detail-list').innerHTML='<div style="text-align:center;padding:24px;color:var(--color-text2)">ไม่มีรายการขายในวันนี้</div>';
+  }else{
+    document.getElementById('day-detail-list').innerHTML=[...daySales].reverse().map(s=>{
+      const idx=sales.indexOf(s);
+      return `<div class="day-sale-row">
+        <div style="flex:1">
+          <div style="font-size:var(--fs-sm);color:var(--color-text2)">${s.time} · ${s.pay==='cash'?'💵 เงินสด':s.pay==='thai'?'🇹🇭 ไทยช่วยไทย':'📲 โอนจ่าย'}${s.discAmt>0?` · ลด ${fmt(s.discAmt)}`:''}${s.member?` · 👤${s.member.name}`:''}</div>
+          <div style="font-size:var(--fs);margin-top:2px">${s.items.map(it=>it.name+' x'+it.qty).join(', ')}</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap;margin-left:12px">
+          <div style="font-weight:500">${fmt(s.tot)}</div>
+          <div style="font-size:var(--fs-sm);color:var(--color-success-text)">กำไร ${fmt(s.prf)}</div>
+          <div style="display:flex;gap:4px;margin-top:4px;justify-content:flex-end">
+            <button class="btn sm" onclick="guardEdit(()=>{closeModal('modal-day-detail');openEditSale(${idx});})"><i class="ti ti-edit"></i></button>
+            <button class="btn sm" onclick="showReceiptModal(sales[${idx}])"><i class="ti ti-receipt"></i></button>
+            <button class="btn sm danger-outline" onclick="guardEdit(()=>{cancelSale(${idx});openDayDetail('${dateStr}');})"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('modal-day-detail').classList.add('open');
+}
+
+// ═══════════════════════════════════════════════
+// LOGIN GUARD
+// ═══════════════════════════════════════════════
+let _editAuthExpiry=0; // unix ms — stays unlocked 10 min
+let _pendingEditFn=null;
+
+function guardEdit(fn){
+  // If no password set, just run directly
+  if(!settings.editPass){fn();return;}
+  // If already authenticated (within 10 min), run directly
+  if(Date.now()<_editAuthExpiry){fn();return;}
+  // Otherwise show login
+  _pendingEditFn=fn;
+  document.getElementById('lock-user').value='';
+  document.getElementById('lock-pass').value='';
+  document.getElementById('lock-alert').innerHTML='';
+  document.getElementById('modal-edit-lock').classList.add('open');
+  setTimeout(()=>document.getElementById('lock-user').focus(),80);
+}
+
+function submitEditLock(){
+  const u=document.getElementById('lock-user').value.trim();
+  const p=document.getElementById('lock-pass').value;
+  if(u!==settings.editUser||p!==settings.editPass){
+    document.getElementById('lock-alert').innerHTML='<div class="alert err">Username หรือรหัสผ่านไม่ถูกต้อง</div>';
+    document.getElementById('lock-pass').value='';
+    document.getElementById('lock-pass').focus();
+    return;
+  }
+  _editAuthExpiry=Date.now()+10*60*1000; // 10 min
+  document.getElementById('modal-edit-lock').classList.remove('open');
+  showToast('เข้าสู่ระบบแก้ไขสำเร็จ (10 นาที)','ok');
+  if(_pendingEditFn){const fn=_pendingEditFn;_pendingEditFn=null;fn();}
+}
+
+function closeEditLock(){
+  document.getElementById('modal-edit-lock').classList.remove('open');
+  _pendingEditFn=null;
 }
 
 // ═══════════════════════════════════════════════
